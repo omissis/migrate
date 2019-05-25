@@ -176,6 +176,56 @@ func TestLockWorks(t *testing.T) {
 	})
 }
 
+func TestLockCanBeSkipped(t *testing.T) {
+	dktesting.ParallelTest(t, specs, func(t *testing.T, c dktest.ContainerInfo) {
+		ip, port, err := c.Port(defaultPort)
+		if err != nil {
+			t.Fatal(err)
+		}
+
+		addr := fmt.Sprintf("mysql://root:root@tcp(%v:%v)/public?x-skip-locking=true", ip, port)
+		p := &Mysql{}
+		d, err := p.Open(addr)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if (p.config.SkipLocking != true) {
+			t.Fatal(fmt.Errorf("database configuration should have skip locking set to true when x-skip-locking is specified"))
+		}
+
+		dt.Test(t, d, []byte("SELECT 1"))
+
+		ms := d.(*Mysql)
+
+		err = ms.Lock()
+		if err != nil {
+			t.Fatal(err)
+		}
+		if ms.isLocked != false {
+			t.Fatal(fmt.Errorf("database should not be locked when skipLocking is set to true"))
+		}
+
+		err = ms.Unlock()
+		if err != nil {
+			t.Fatal(err)
+		}
+
+		// make sure the 2nd lock works (RELEASE_LOCK is very finicky)
+		err = ms.Lock()
+		if err != nil {
+			t.Fatal(err)
+		}
+		if ms.isLocked != false {
+			t.Fatal(fmt.Errorf("database should not be locked when skipLocking is set to true"))
+		}
+
+		err = ms.Unlock()
+		if err != nil {
+			t.Fatal(err)
+		}
+	})
+}
+
 func TestURLToMySQLConfig(t *testing.T) {
 	testcases := []struct {
 		name        string

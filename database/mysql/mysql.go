@@ -42,14 +42,15 @@ var (
 type Config struct {
 	MigrationsTable string
 	DatabaseName    string
+	SkipLocking     bool
 }
 
 type Mysql struct {
 	// mysql RELEASE_LOCK must be called from the same conn, so
 	// just do everything over a single conn anyway.
-	conn     *sql.Conn
-	db       *sql.DB
-	isLocked bool
+	conn        *sql.Conn
+	db          *sql.DB
+	isLocked    bool
 
 	config *Config
 }
@@ -205,6 +206,10 @@ func (m *Mysql) Close() error {
 }
 
 func (m *Mysql) Lock() error {
+	if m.config.SkipLocking {
+		return nil
+	}
+
 	if m.isLocked {
 		return database.ErrLocked
 	}
@@ -230,6 +235,10 @@ func (m *Mysql) Lock() error {
 }
 
 func (m *Mysql) Unlock() error {
+	if m.config.SkipLocking {
+		return nil
+	}
+
 	if !m.isLocked {
 		return nil
 	}
